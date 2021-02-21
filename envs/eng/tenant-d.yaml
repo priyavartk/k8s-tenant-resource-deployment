@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-d
+  labels:
+    name: tenant-d
+    environment: Eng
+  annotations:
+    owner: tenant-d@mail.com
+    contact: Tenant-A 
+    business-unit: Finance
+---
+kind: LimitRange
+apiVersion: v1
+metadata:
+  name: tenant-d-limit
+  namespace: tenant-d
+spec:
+  limits:
+# Max limits for the POD, greater than or equal to sum of all container limits
+  - type: Pod
+    max:
+      cpu: 4  
+      memory: 8Gi
+# default limits for a container in a pod, if containers not deployed with limits
+  - type: Container
+    default:
+      cpu: 1
+      memory: 1Gi
+# default request resources when not set by container.
+    defaultRequest:
+      cpu: 200m
+      memory: 200Mi
+# Max for each container , can not be greater than max of Pods.
+    max:
+      cpu: 2
+      memory: 4Gi
+# Min for each container,can not be greater than default requests.
+    min:
+      cpu: 100m  
+      memory: 200Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tenant-d-quota
+  namespace: tenant-d
+spec:
+  hard:
+    persistentvolumeclaims: "100"
+    pods: "110"
+    replicationcontrollers: "100"
+    resourcequotas: "1"
+    requests.cpu: "24"
+    requests.memory: "64Gi"
+    limits.cpu: "200"
+    limits.memory: "192Gi"
+    configmaps: "100"
+    secrets: "100"
+    services: "200"
+    services.loadbalancers: "0"
+    requests.storage: "20Gi"
+    requests.ephemeral-storage: "20Gi"
+    limits.ephemeral-storage: "20Gi"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels: {}
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels: {}
+  policyTypes:
+  - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-webapp-ingress
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels:
+      role: web
+  ingress:
+  - ports:
+    - port: 80
+      protocol: TCP
+    - port: 8443
+      protocol: TCP
+    from: []
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-service-ingress
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels:
+      role: service
+  ingress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    - port: 8443
+      protocol: TCP
+    from: []
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pod-communication
+  namespace: tenant-d
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+     - namespaceSelector:
+        matchLabels:
+          name: tenant-d
+  egress:
+  - to:
+     - namespaceSelector:
+        matchLabels:
+          name: tenant-d
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-access
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-service-sqlserver-egress
+  namespace: tenant-d
+spec:
+  podSelector:
+    matchLabels:
+      role: service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 1433
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-http-egress
+  namespace: tenant-d
+spec:
+  podSelector: {}
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 80 
+    - protocol: TCP
+      port: 443
+  policyTypes:
+  - Egress
+

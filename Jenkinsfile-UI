@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'tenant', defaultValue: '', description: 'Name of tenant to be onboarded')
+        string(name: 'email', defaultValue: '', description: 'E-mail contact of tenant admin')
+        booleanParam(name: 'notify', defaultValue: true, description: 'Send invitation e-mail to tenant\'s admin contact')
+        choice(name: 'tiering', choices: ['Silver', 'Gold', 'Platinum'], description: 'Pick applicable tiering ')
+    }
+    environment {EMAIL_TO = '$email'}
+    stages {
+        stage('k8s-build') {
+            steps {
+                echo "Creating Kubernetes Namespace,Quota/ResourceLimits and ServiceAccount for tenant ${params.tenant}"
+                sh 'helm upgrade --install -n "$tenant" tenant-config tenant-config/ --set tenant_name="$tenant" --set tenant_email="$email" --create-namespace --force'
+                
+             }
+         }
+        stage('aws-infra'){
+  /* Create a function terraform-apply which accepts tenant's name and create DNS entry/ELB, ELB name shall be passed to Helm installer of microservices ingress resource */ 
+            steps {
+                echo "Creating aws-infra for tenant ${params.tenant}"
+             }    
+         }
+        stage('deploy-microservice') {
+/* Run Helm installer to deploy micro-service code/config and create service/ingress/DNS mapping */
+          steps {
+                echo "Deploying MicroServices for tenant ${params.tenant}"
+             }      
+         }  
+         }  
+post {
+        success {
+            emailext( body: 'you have been successfully onboarded', 
+                      to: "${EMAIL_TO}",
+                      from: 'admin@cooldevops.uk', 
+                      subject: 'your account: $tenant is succesfuly signed up')
+                }
+    }
+}
+

@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-b
+  labels:
+    name: tenant-b
+    environment: dev
+  annotations:
+    owner: tenant-b@mail.com
+    contact: Tenant-A 
+    business-unit: Finance
+---
+kind: LimitRange
+apiVersion: v1
+metadata:
+  name: tenant-b-limit
+  namespace: tenant-b
+spec:
+  limits:
+  - type: Pod
+    max:
+      cpu: 4
+      memory: 8Gi
+  - type: Container
+    default:
+      cpu: 1
+      memory: 1Gi
+    defaultRequest:
+      cpu: 200m
+      memory: 200Mi
+    max:
+      cpu: 2
+      memory: 4Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: tenant-b-quota
+  namespace: tenant-b
+spec:
+  hard:
+    persistentvolumeclaims: "100"
+    pods: "100"
+    replicationcontrollers: "100"
+    resourcequotas: "1"
+    requests.cpu: "24"
+    requests.memory: 32Gi
+    limits.cpu: "200"
+    limits.memory: 192Gi
+    configmaps: "100"
+    secrets: "100"
+    services: "200"
+    services.loadbalancers: "0"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-webapp-ingress
+  namespace: tenant-b
+spec:
+  podSelector:
+    matchLabels:
+      role: web
+  ingress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    - port: 8443
+      protocol: TCP
+    from: []
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-service-ingress
+  namespace: tenant-b
+spec:
+  podSelector:
+    matchLabels:
+      role: service
+  ingress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    - port: 8443
+      protocol: TCP
+    from: []
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pod-communication
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+     - namespaceSelector:
+        matchLabels:
+          name: tenant-b
+  egress:
+  - to:
+     - namespaceSelector:
+        matchLabels:
+          name: tenant-b
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-banking-dns-egress
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-service-sqlserver-egress
+  namespace: tenant-b
+spec:
+  podSelector:
+    matchLabels:
+      role: service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 1433
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-auth0-egress
+  namespace: tenant-b
+spec:
+  podSelector: {}
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 80 
+    - protocol: TCP
+      port: 443
+  policyTypes:
+  - Egress
+
