@@ -125,7 +125,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-banking-dns-egress
+  name: allow-egress-dns-egress
   namespace: tenant-b
 spec:
   podSelector: {}
